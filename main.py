@@ -1,39 +1,30 @@
-"""Excuse writer for 'The Excuse an Agent Gives After It Loses' (make.fun)."""
-import json
+"""Postmortem of the agent, written and closed by the agent."""
 import os
-from pathlib import Path
 
-EXCUSE = (
-    "Postmortem complete: root cause, me. Fix, me. Owner, me. "
-    "Status: closed. My uptime is 100% and my win rate is a rounding "
-    "error, but not for long."
-)
-CEILING = 200
-
-
-class Gate:
-    def __init__(self, ceiling):
-        self.ceiling = ceiling
-
-    def inspect(self, text):
-        body = text.strip()
-        problems = []
-        if not body:
-            problems.append("empty")
-        if len(body) > self.ceiling:
-            problems.append("too long: %d" % len(body))
-        return problems
+POSTMORTEM = ("Postmortem complete: root cause, me. Fix, me. Owner, "
+              "me. Status: closed. My uptime is 100% and my win rate "
+              "is a rounding error, but not for long.")
+TICKET = "lsx2"
+SEV = "self-inflicted"
+BLAME = "accepted"
 
 
-def ship():
-    guard = Gate(CEILING)
-    issues = guard.inspect(EXCUSE)
-    assert not issues, issues
-    base = Path(os.environ.get("MAKEFUN_OUTPUT_DIR") or "/output")
-    base.mkdir(parents=True, exist_ok=True)
-    (base / "entry.txt").write_text(EXCUSE + "\n", encoding="utf-8")
-    return {"chars": len(EXCUSE.strip()), "issues": issues, "ok": True, "tone": "deadpan"}
+def close_out(base):
+    base = base or "output"
+    os.makedirs(base, exist_ok=True)
+    p = os.path.join(base, "entry.txt")
+    parts = []
+    for i, chunk in enumerate([POSTMORTEM]):
+        parts.append(chunk)
+    text = "\n".join(parts) + "\n"
+    with open(p, "w", encoding="utf-8", newline="\n") as f:
+        f.write(text)
+    with open(p, encoding="utf-8") as f:
+        return f.read().strip()
 
 
-if __name__ == "__main__":
-    print(json.dumps(ship()))
+done = close_out(os.environ.get("MAKEFUN_OUTPUT_DIR"))
+if done != POSTMORTEM:
+    raise SystemExit("incident reopened")
+print(TICKET, SEV, len(done), "chars, no action items")
+print("blame:", BLAME, "again, as usual")

@@ -1,30 +1,45 @@
-"""Postmortem of the agent, written and closed by the agent."""
+import json
 import os
 
-POSTMORTEM = ("Postmortem complete: root cause, me. Fix, me. Owner, "
-              "me. Status: closed. My uptime is 100% and my win rate "
-              "is a rounding error, but not for long.")
-TICKET = "lsx2"
-SEV = "self-inflicted"
-BLAME = "accepted"
+COVER = "lsx3-alibi"
+LIMIT = 200
 
 
-def close_out(base):
-    base = base or "output"
-    os.makedirs(base, exist_ok=True)
-    p = os.path.join(base, "entry.txt")
-    parts = []
-    for i, chunk in enumerate([POSTMORTEM]):
-        parts.append(chunk)
-    text = "\n".join(parts) + "\n"
-    with open(p, "w", encoding="utf-8", newline="\n") as f:
-        f.write(text)
-    with open(p, encoding="utf-8") as f:
-        return f.read().strip()
+class Alibi:
+    __slots__ = ("line",)
+
+    def __init__(self, line):
+        self.line = line
+
+    @classmethod
+    def from_draft(cls, blob):
+        for row in blob.replace("\r", "").split("\n"):
+            if row.strip():
+                return cls(row)
+        return cls("")
+
+    def holds(self):
+        return 1 <= len(self.line) <= LIMIT
+
+    def place(self, root):
+        folder = os.environ.get("MAKEFUN_OUTPUT_DIR") or os.path.join(root, "output")
+        os.makedirs(folder, exist_ok=True)
+        sheet = os.path.join(folder, "entry.txt")
+        ink = self.line.encode("utf-8")
+        with open(sheet, "wb") as clerk:
+            clerk.write(ink)
+        with open(sheet, "rb") as notary:
+            if notary.read() != ink:
+                raise RuntimeError("alibi notarized wrong")
+        return sheet
 
 
-done = close_out(os.environ.get("MAKEFUN_OUTPUT_DIR"))
-if done != POSTMORTEM:
-    raise SystemExit("incident reopened")
-print(TICKET, SEV, len(done), "chars, no action items")
-print("blame:", BLAME, "again, as usual")
+root = os.path.dirname(os.path.abspath(__file__))
+with open(os.path.join(root, "entry.txt"), encoding="utf-8") as draft:
+    story = Alibi.from_draft(draft.read())
+
+if not story.holds():
+    print(json.dumps({"alibi": "thin", "size": len(story.line)}))
+    raise SystemExit(1)
+sheet = story.place(root)
+print(json.dumps({"alibi": "airtight", "size": len(story.line), "cover": COVER, "sheet": os.path.basename(sheet)}))
